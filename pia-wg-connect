@@ -407,7 +407,7 @@ def write_pf_port(file: str, port: PiaPort):
   file.close()
 
 def write_rtorrent_file(file: str, port: PiaPort, systemd: bool = False, systemdservicename: str = None):
-  theString = "network.port_range.set = "+port.payload.port+"-"+port.payload.port
+  theString = "network.port_range.set = "+str(port.payload.port)+"-"+str(port.payload.port)
   file = open(file, 'w')
   file.write(theString)
   file.close()
@@ -423,7 +423,7 @@ def connect(args):
   password: Optional[str] = None
   pia_pf: bool = False
   pia_pf_file: Optional[str] = None
-  pia_ur: bool = True
+  pia_ur: bool = False
   pia_ur_file: Optional[str] = None
   pia_sd = False
   pia_sd_srv = None
@@ -565,6 +565,7 @@ try:
   parser.add_argument('--config', '-c', help="Path to configuration file", type=str)
   parser.add_argument('--cafile', '-a', help="Path to a CA bundle", type=str)
   parser.add_argument('--log', '-l', help="Log level (debug, info, warn, error)", type=str)
+  parser.set_defaults(func=None)
   subparsers = parser.add_subparsers(title='subcommands',description='valid subcommands')
   parser_connect = subparsers.add_parser('connect', help='Connect to the most optimal PIA server')
   parser_connect.add_argument('--username', '-u', help="Your rapidgator username", type=str)
