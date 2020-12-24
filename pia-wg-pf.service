@@ -1,0 +1,8 @@
+[Unit]
+Description=Forward the pia port
+After=network.target pia-wg-connect.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/pia-wg-connect -l info refresh -r /var/lib/rtorrent/rtorrent/config.d/port.rc -x rtorrent.service
+StandardOutput=journal

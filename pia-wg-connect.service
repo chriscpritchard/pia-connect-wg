@@ -1,0 +1,13 @@
+[Unit]
+Description=Connect to PIA
+After=network.target
+
+[Service]
+Type=oneshot
+RuntimeDirectory=pia
+ExecStart=/usr/bin/pia-wg-connect -l info connect -f pia -d -r /var/lib/rtorrent/rtorrent/config.d/port.rc -x rtorrent
+RemainAfterExit=true
+ExecStop=/usr/bin/pia-wg-connect -l info disconnect
+StandardOutput=journal
+[Install]
+WantedBy=multi-user.target
