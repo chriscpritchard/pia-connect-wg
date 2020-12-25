@@ -27,6 +27,7 @@
 import configparser
 import argparse
 import os
+import sys
 import subprocess
 import urllib
 import requests
@@ -423,110 +424,116 @@ dht_port = %s
 
 
 def connect(args):
-  serverlisturl: str = "https://serverlist.piaservers.net/vpninfo/servers/v4"
-  username: Optional[str] = None
-  password: Optional[str] = None
-  pia_pf: bool = False
-  pia_pf_file: Optional[str] = None
-  pia_ur: bool = False
-  pia_ur_file: Optional[str] = None
-  pia_sd = False
-  pia_sd_srv = None
-  pia_dns: bool = False
-  pia_timeout: int = 10
   try:
-    if(args.serverlist):
-      logging.warning("Overriding default server list from command line, I hope you know what you're doing!")
-      serverlisturl = args.serverlist.strip()
-    else:
-      srv = config.get('connection','serverlist')
-      logging.warning("Overriding default server list from config file, I hope you know what you're doing!")
-      serverlisturl = srv
-  except configparser.NoSectionError:
-    pass
+    serverlisturl: str = "https://serverlist.piaservers.net/vpninfo/servers/v4"
+    username: Optional[str] = None
+    password: Optional[str] = None
+    pia_pf: bool = False
+    pia_pf_file: Optional[str] = None
+    pia_ur: bool = False
+    pia_ur_file: Optional[str] = None
+    pia_sd = False
+    pia_sd_srv = None
+    pia_dns: bool = False
+    pia_timeout: int = 10
+    try:
+      if(args.serverlist):
+        logging.warning("Overriding default server list from command line, I hope you know what you're doing!")
+        serverlisturl = args.serverlist.strip()
+      else:
+        srv = config.get('connection','serverlist')
+        logging.warning("Overriding default server list from config file, I hope you know what you're doing!")
+        serverlisturl = srv
+    except configparser.NoSectionError:
+      pass
 
-  try:
-    if(args.portforward):
-      pia_pf = True
-      pia_pf_file = args.portforward
-    else:
-      pia_pf = config.get('connection', 'portforward')
-      pia_pf = config.get('connection', 'portforwardfile')
-  except configparser.NoSectionError:
-    pass
-  
-  try:
-    if(args.updatertorrent):
-      pia_ur = True
-      pia_ur_file = args.updatertorrent
-    else:
-      pia_ur = config.get('connection', 'updatertorrent')
-      pia_ur = config.get('connection', 'updatertorrentfile')
-  except configparser.NoSectionError:
-    pass
+    try:
+      if(args.portforward):
+        pia_pf = True
+        pia_pf_file = args.portforward
+      else:
+        pia_pf = config.get('connection', 'portforward')
+        pia_pf = config.get('connection', 'portforwardfile')
+    except configparser.NoSectionError:
+      pass
+    
+    try:
+      if(args.updatertorrent):
+        pia_ur = True
+        pia_ur_file = args.updatertorrent
+      else:
+        pia_ur = config.get('connection', 'updatertorrent')
+        pia_ur = config.get('connection', 'updatertorrentfile')
+    except configparser.NoSectionError:
+      pass
 
-  try:
-    if(args.rtorrentsystemdservice):
-      pia_sd = True
-      pia_sd_srv = args.rtorrentsystemdservice
-    else:
-      pia_sd = config.get('programs', 'systemd')
-      pia_sd_srv = config.get('programs', 'rtorrentservice')
-  except configparser.NoSectionError:
-    pass
+    try:
+      if(args.rtorrentsystemdservice):
+        pia_sd = True
+        pia_sd_srv = args.rtorrentsystemdservice
+      else:
+        pia_sd = config.get('programs', 'systemd')
+        pia_sd_srv = config.get('programs', 'rtorrentservice')
+    except configparser.NoSectionError:
+      pass
 
-  try:
-    if(args.dns):
-      pia_dns = args.dns
-    else:
-      pia_dns = config.get('connection', 'dns')
-  except configparser.NoSectionError:
-    pass
+    try:
+      if(args.dns):
+        pia_dns = args.dns
+      else:
+        pia_dns = config.get('connection', 'dns')
+    except configparser.NoSectionError:
+      pass
 
-  try:
-    if(args.timeout):
-      pia_timeout = args.timeout
-    else:
-      pia_pf = config.get('connection', 'timeout')
-  except configparser.NoSectionError:
-    pass
+    try:
+      if(args.timeout):
+        pia_timeout = args.timeout
+      else:
+        pia_pf = config.get('connection', 'timeout')
+    except configparser.NoSectionError:
+      pass
 
-  try:
-    if(args.username):
-      username = args.username.strip()
-    else:
-      username = config.get('auth', 'username')
-  except configparser.NoSectionError:
-    pass
-  try:
-    if(args.password):
-      password = args.password.strip()
-    else:
-      password = config.get('auth', 'password')
-  except configparser.NoSectionError:
-    pass
-  if(username == None):
-    raise ValueError("Username must be specified on the command line, or be in the config file")
-  elif(password == None):
-    raise ValueError("Password must be specified on the command line, or be in the config file")
-  regionJson: str = get_json(serverlisturl).partition('\n')[0]
-  piaRegions: PiaRegion = json.loads(regionJson, object_hook=lambda d: pia_json_to_objects(**d))
-  bestRegion: Region = get_best_server_region(piaregions=piaRegions, pf=True, timeout=10)
-  if bestRegion.latency == float("inf"):
-    raise ValueError("No region responded within "+ str(pia_timeout) +"s consider using a higher timeout.")
-  logging.info("The best region is: " + bestRegion.name + " (" + bestRegion.id + ") with a latency of: " + str(int(bestRegion.latency*100000)/100) + "ms")
-  token: str = generate_token_response(region=bestRegion, username=username, password=password)
-  piaJson = pia_connect_wg(region=bestRegion, token=token, dns=pia_dns)
-  if pia_pf == True:
-      logging.info("Sleeping for 5 seconds to allow everything to come up")
-      time.sleep(5)
-      logging.info("getting a port from PIA")
-      port = pia_portforward_enable(piaJson=piaJson, piaToken=token, piaRegion=bestRegion)
-      logging.info("Trying to bind port")
-      port = pia_pf_bind(port=port)
-      write_pf_port(file=pia_pf_file, port=port)
-      if pia_ur == True:
-        write_rtorrent_file(file = pia_ur_file, port=port, systemd=pia_sd, systemdservicename=pia_sd_srv)
+    try:
+      if(args.username):
+        username = args.username.strip()
+      else:
+        username = config.get('auth', 'username')
+    except configparser.NoSectionError:
+      pass
+    try:
+      if(args.password):
+        password = args.password.strip()
+      else:
+        password = config.get('auth', 'password')
+    except configparser.NoSectionError:
+      pass
+    if(username == None):
+      raise ValueError("Username must be specified on the command line, or be in the config file")
+    elif(password == None):
+      raise ValueError("Password must be specified on the command line, or be in the config file")
+    regionJson: str = get_json(serverlisturl).partition('\n')[0]
+    piaRegions: PiaRegion = json.loads(regionJson, object_hook=lambda d: pia_json_to_objects(**d))
+    bestRegion: Region = get_best_server_region(piaregions=piaRegions, pf=True, timeout=10)
+    if bestRegion.latency == float("inf"):
+      raise ValueError("No region responded within "+ str(pia_timeout) +"s consider using a higher timeout.")
+    logging.info("The best region is: " + bestRegion.name + " (" + bestRegion.id + ") with a latency of: " + str(int(bestRegion.latency*100000)/100) + "ms")
+    token: str = generate_token_response(region=bestRegion, username=username, password=password)
+    piaJson = pia_connect_wg(region=bestRegion, token=token, dns=pia_dns)
+    if pia_pf == True:
+        logging.info("Sleeping for 5 seconds to allow everything to come up")
+        time.sleep(5)
+        logging.info("getting a port from PIA")
+        port = pia_portforward_enable(piaJson=piaJson, piaToken=token, piaRegion=bestRegion)
+        logging.info("Trying to bind port")
+        port = pia_pf_bind(port=port)
+        write_pf_port(file=pia_pf_file, port=port)
+        if pia_ur == True:
+          write_rtorrent_file(file = pia_ur_file, port=port, systemd=pia_sd, systemdservicename=pia_sd_srv)
+  except:
+    logging.error("Error... cleaning up and disconnecting before exiting")
+    pia_disconnect_wg()
+    raise
+
 def disconnect(args):
   pia_disconnect_wg()
 def refresh(args):
@@ -636,14 +643,15 @@ try:
 except ValueError as e:
   logging.error(e)
   logging.error("Exiting!")
-  pia_disconnect_wg()
-  raise SystemExit
+  raise SystemExit(21)
 except PermissionError as e:
   logging.error("Permission error - you need to run this script as root!")
   logging.error(e)
   logging.error("Exiting!")
-  pia_disconnect_wg()
-  raise SystemExit
+  raise SystemExit(22)
 except:
-  pia_disconnect_wg()
-  raise
+  e = sys.exc_info()[0]
+  logging.error("Other error!")
+  logging.error(e)
+  logging.error("Exiting!")
+  raise SystemExit(19)
