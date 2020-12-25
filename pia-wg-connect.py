@@ -409,7 +409,10 @@ def write_pf_port(file: str, port: PiaPort):
   file.close()
 
 def write_rtorrent_file(file: str, port: PiaPort, systemd: bool = False, systemdservicename: str = None):
-  theString = "network.port_range.set = "+str(port.payload.port)+"-"+str(port.payload.port)
+  theString = """
+network.port_range.set = %s-%s
+dht_port = %s
+"""% (str(port.payload.port), str(port.payload.port), str(port.payload.port))
   file = open(file, 'w')
   file.write(theString)
   file.close()
@@ -626,15 +629,21 @@ try:
   logging.info("Log level set to: " + log_level)
   
   # Call the appropriate function for the subcommand
-  args.func(args)
-
+  if args.func is not None:
+    args.func(args)
+  else:
+    raise ValueError("You need to pass a command!")
 except ValueError as e:
   logging.error(e)
   logging.error("Exiting!")
+  pia_disconnect_wg()
   raise SystemExit
 except PermissionError as e:
   logging.error("Permission error - you need to run this script as root!")
   logging.error(e)
   logging.error("Exiting!")
+  pia_disconnect_wg()
   raise SystemExit
-
+except:
+  pia_disconnect_wg()
+  raise
