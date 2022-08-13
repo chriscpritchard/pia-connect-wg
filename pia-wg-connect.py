@@ -197,7 +197,14 @@ cafile: str = None
 groups: List[Group] = []
 config = configparser.ConfigParser()
 
-#### Begin Function Definitions 
+#### Begin Function Definitions
+def validateJSON(jsonData):
+    try:
+        json.loads(jsonData)
+    except ValueError as err:
+        return False
+    return True
+
 def pia_json_to_objects(**kwargs):
   if 'ports' in kwargs:
     group: Group = Group(name=kwargs['name'],ports=kwargs['ports'])
@@ -251,15 +258,16 @@ def get_json(url: str) -> str:
       logging.debug("getting url: " + url)
       resp = requests.get(url)
       cont_type = resp.headers['Content-Type'].lower()
-      if (resp.status_code == 200 and cont_type is not None and cont_type.find('json') > -1):
+      resp_json = resp.text.partition('\n')[0]
+      if (resp.status_code == 200 and cont_type is not None and validateJSON(resp_json) is True):
         retry = False
-        return resp.text
+        return resp.text.partition('\n')[0]
       else:
         time.sleep(2)
         count += 1
         if(count == 5):
           retry = False
-        raise TypeError("Content does not appear to be JSON")
+          raise TypeError("Content does not appear to be JSON")
     except Exception as e:
       logging.error(e)
 
@@ -422,10 +430,13 @@ dht_port = %s
     manager = dbus.Interface(systemd1,'org.freedesktop.systemd1.Manager')
     job = manager.ReloadOrTryRestartUnit(systemdservicename,'fail')
 
+def update_transmission_port(transmission_username: str, transmission_password: str, port: PiaPort):
+  logging.info("Updating transmission port")
+  subprocess.run(['transmission-remote', '-n', transmission_username+':'+transmission_password '--port', str(port.payload.port)])
 
 def connect(args):
   try:
-    serverlisturl: str = "https://serverlist.piaservers.net/vpninfo/servers/v4"
+    serverlisturl: str = "https://serverlist.piaservers.net/vpninfo/servers/v6"
     username: Optional[str] = None
     password: Optional[str] = None
     pia_pf: bool = False
@@ -453,7 +464,7 @@ def connect(args):
         pia_pf_file = args.portforward
       else:
         pia_pf = config.get('connection', 'portforward')
-        pia_pf = config.get('connection', 'portforwardfile')
+        pia_pf_file = config.get('connection', 'portforwardfile')
     except configparser.NoSectionError:
       pass
     
@@ -463,7 +474,7 @@ def connect(args):
         pia_ur_file = args.updatertorrent
       else:
         pia_ur = config.get('connection', 'updatertorrent')
-        pia_ur = config.get('connection', 'updatertorrentfile')
+        pia_ur_file = config.get('connection', 'updatertorrentfile')
     except configparser.NoSectionError:
       pass
 
@@ -474,6 +485,18 @@ def connect(args):
       else:
         pia_sd = config.get('programs', 'systemd')
         pia_sd_srv = config.get('programs', 'rtorrentservice')
+    except configparser.NoSectionError:
+      pass
+
+    try:
+      if(args.updatetransmission):
+        pia_ut = True
+        pia_ut_username = args.updatetransmissionusername
+        pia_ut_password = args.updatetransmissionpassword
+      else:
+        pia_ut = config.get('transmission', 'update')
+        pia_ut_username = config.get('transmission', 'username')
+        pia_ut_password = config.get('transmission', 'password')
     except configparser.NoSectionError:
       pass
 
@@ -511,7 +534,7 @@ def connect(args):
       raise ValueError("Username must be specified on the command line, or be in the config file")
     elif(password == None):
       raise ValueError("Password must be specified on the command line, or be in the config file")
-    regionJson: str = get_json(serverlisturl).partition('\n')[0]
+    regionJson: str = get_json(serverlisturl)
     piaRegions: PiaRegion = json.loads(regionJson, object_hook=lambda d: pia_json_to_objects(**d))
     bestRegion: Region = get_best_server_region(piaregions=piaRegions, pf=True, timeout=10)
     if bestRegion.latency == float("inf"):
@@ -529,6 +552,8 @@ def connect(args):
         write_pf_port(file=pia_pf_file, port=port)
         if pia_ur == True:
           write_rtorrent_file(file = pia_ur_file, port=port, systemd=pia_sd, systemdservicename=pia_sd_srv)
+        if pia_ut == True:
+          update_transmission_port(transmission_username=pia_ut_username, transmission_password=pia_ut_password, port=port)
   except:
     logging.error("Error... cleaning up and disconnecting before exiting")
     pia_disconnect_wg()
@@ -541,6 +566,9 @@ def refresh(args):
   pia_ur_file: Optional[str] = None
   pia_sd = False
   pia_sd_srv = None
+  pia_ut: bool = False
+  pia_ut_username: Optional[str] = None
+  pia_ut_password: Optional[str] = None
   try:
     if(args.rtorrentsystemdservice):
       pia_sd = True
@@ -559,6 +587,17 @@ def refresh(args):
       pia_ur = config.get('programs', 'updatertorrentfile')
   except configparser.NoSectionError:
     pass
+  try:
+    if(args.updatetransmission):
+      pia_ut = True
+      pia_ut_username = args.updatetransmissionusername
+      pia_ut_password = args.updatetransmissionpassword
+    else:
+      pia_ut = config.get('transmission', 'update')
+      pia_ut_username = config.get('transmission', 'username')
+      pia_ut_password = config.get('transmission', 'password')
+  except configparser.NoSectionError:
+    pass
   file = open(args.file)
   port: PiaPort = jsonpickle.decode(file.read())
   orig_port: int = port.payload.port
@@ -569,7 +608,8 @@ def refresh(args):
   write_pf_port(file=args.file, port=port)
   if pia_ur == True and orig_port != new_port:
     write_rtorrent_file(file = pia_ur_file, port = port, systemd=pia_sd, systemdservicename=pia_sd_srv)
-
+  if pia_ut == True and orig_port != new_port:
+    update_transmission_port(transmission_username=pia_ut_username, transmission_password=pia_ut_password, port = port)
 #### Begin Main Program
 try:
   # Command line args
@@ -580,12 +620,15 @@ try:
   parser.set_defaults(func=None)
   subparsers = parser.add_subparsers(title='subcommands',description='valid subcommands')
   parser_connect = subparsers.add_parser('connect', help='Connect to the most optimal PIA server')
-  parser_connect.add_argument('--username', '-u', help="Your rapidgator username", type=str)
-  parser_connect.add_argument('--password', '-p', help="Your rapidgator password", type=str)
+  parser_connect.add_argument('--username', '-u', help="Your PIA username", type=str)
+  parser_connect.add_argument('--password', '-p', help="Your PIA password", type=str)
   parser_connect.add_argument('--dns', '-d', help="update DNS using either resolvconf", action='store_true')
   parser_connect.add_argument('--portforward', '-f', help="Ask for a port to be forwarded to the local machine, saves the port object as JSON in PORTFORWARD", type=str)
   parser_connect.add_argument('--updatertorrent', '-r', help="Update an rtorrent drop in file with the port that's been forwarded", type=str)
   parser_connect.add_argument('--rtorrentsystemdservice', '-x', help="The systemd service to restart, if running", type=str)
+  parser_connect.add_argument('--updatetransmission', '-a', help="update transmission to use the forwarded port", action='store_true')
+  parser_connect.add_argument('--transmissionusername', '-n', help="The transmission RPC username", type=str)
+  parser_connect.add_argument('--transmissionpassword', '-l', help="The transmission RPC password", type=str)
   parser_connect.add_argument('--timeout', '-t', help="Timeout when testing for best server (defaults to 10s)", type=int)
   parser_connect.add_argument('--serverlist', '-s', help="a URL to obtain a server list from in PIA's JSON format (advanced option)", type=str)
   parser_connect.set_defaults(func=connect)
@@ -595,6 +638,9 @@ try:
   parser_refresh.add_argument('file', help="Path to a file containing a PiaPort object in JSON format", type=str)
   parser_refresh.add_argument('--updatertorrent', '-r', help="Update an rtorrent drop in file with the port that's been forwarded", type=str)
   parser_refresh.add_argument('--rtorrentsystemdservice', '-x', help="The systemd service to restart, if running", type=str)
+  parser_refresh.add_argument('--updatetransmission', '-a', help="update transmission to use the forwarded port", action='store_true')
+  parser_refresh.add_argument('--transmissionusername', '-n', help="The transmission RPC username", type=str)
+  parser_refresh.add_argument('--transmissionpassword', '-l', help="The transmission RPC password", type=str)
   parser_refresh.set_defaults(func=refresh)
   args = parser.parse_args()
 

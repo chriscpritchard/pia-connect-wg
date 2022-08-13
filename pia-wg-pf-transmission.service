@@ -1,0 +1,8 @@
+[Unit]
+Description=Forward the pia port
+After=network.target pia-wg-connect.service transmission-daemon.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/pia-wg-connect -l info refresh -a /run/pia/port
+StandardOutput=journal
