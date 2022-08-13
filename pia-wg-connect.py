@@ -432,7 +432,7 @@ dht_port = %s
 
 def update_transmission_port(transmission_username: str, transmission_password: str, port: PiaPort):
   logging.info("Updating transmission port")
-  subprocess.run(['transmission-remote', '-n', transmission_username+':'+transmission_password '--port', str(port.payload.port)])
+  subprocess.run(['transmission-remote', '-n', transmission_username+':'+transmission_password, '--port', str(port.payload.port)])
 
 def connect(args):
   try:
