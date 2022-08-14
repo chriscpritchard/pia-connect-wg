@@ -1,3 +1,4 @@
+#!/usr/bin/python
 ####
 # Copyright (C) 2020 Christopher Pritchard
 #
