@@ -1,4 +1,3 @@
-#!/usr/bin/python
 ####
 # Copyright (C) 2020 Christopher Pritchard
 #
@@ -491,11 +490,15 @@ def connect(args):
     try:
       if(args.updatetransmission):
         pia_ut = True
-        pia_ut_username = args.updatetransmissionusername
-        pia_ut_password = args.updatetransmissionpassword
       else:
         pia_ut = config.get('transmission', 'update')
+      if(args.transmissionusername):
+        pia_ut_username = args.transmissionusername
+      else:
         pia_ut_username = config.get('transmission', 'username')
+      if(args.transmissionpassword):
+        pia_ut_password = args.transmissionpassword
+      else:
         pia_ut_password = config.get('transmission', 'password')
     except configparser.NoSectionError:
       pass
@@ -590,11 +593,15 @@ def refresh(args):
   try:
     if(args.updatetransmission):
       pia_ut = True
-      pia_ut_username = args.updatetransmissionusername
-      pia_ut_password = args.updatetransmissionpassword
     else:
       pia_ut = config.get('transmission', 'update')
+    if(args.transmissionusername):
+      pia_ut_username = args.transmissionusername
+    else:
       pia_ut_username = config.get('transmission', 'username')
+    if(args.transmissionpassword):
+      pia_ut_password = args.transmissionpassword
+    else:
       pia_ut_password = config.get('transmission', 'password')
   except configparser.NoSectionError:
     pass
@@ -608,7 +615,7 @@ def refresh(args):
   write_pf_port(file=args.file, port=port)
   if pia_ur == True and orig_port != new_port:
     write_rtorrent_file(file = pia_ur_file, port = port, systemd=pia_sd, systemdservicename=pia_sd_srv)
-  if pia_ut == True and orig_port != new_port:
+  if pia_ut == True:
     update_transmission_port(transmission_username=pia_ut_username, transmission_password=pia_ut_password, port = port)
 #### Begin Main Program
 try:
