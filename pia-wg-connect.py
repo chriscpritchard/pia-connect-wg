@@ -455,7 +455,7 @@ def connect(args):
         srv = config.get('connection','serverlist')
         logging.warning("Overriding default server list from config file, I hope you know what you're doing!")
         serverlisturl = srv
-    except configparser.NoSectionError:
+    except (configparser.NoSectionError, configparser.NoOptionError):
       pass
 
     try:
@@ -465,7 +465,7 @@ def connect(args):
       else:
         pia_pf = config.get('connection', 'portforward')
         pia_pf_file = config.get('connection', 'portforwardfile')
-    except configparser.NoSectionError:
+    except (configparser.NoSectionError, configparser.NoOptionError):
       pass
     
     try:
@@ -475,7 +475,7 @@ def connect(args):
       else:
         pia_ur = config.get('connection', 'updatertorrent')
         pia_ur_file = config.get('connection', 'updatertorrentfile')
-    except configparser.NoSectionError:
+    except (configparser.NoSectionError, configparser.NoOptionError):
       pass
 
     try:
@@ -485,7 +485,7 @@ def connect(args):
       else:
         pia_sd = config.get('programs', 'systemd')
         pia_sd_srv = config.get('programs', 'rtorrentservice')
-    except configparser.NoSectionError:
+    except (configparser.NoSectionError, configparser.NoOptionError):
       pass
 
     try:
@@ -501,7 +501,7 @@ def connect(args):
         pia_ut_password = args.transmissionpassword
       else:
         pia_ut_password = config.get('transmission', 'password')
-    except configparser.NoSectionError:
+    except (configparser.NoSectionError, configparser.NoOptionError):
       pass
 
     try:
@@ -509,7 +509,7 @@ def connect(args):
         pia_dns = args.dns
       else:
         pia_dns = config.get('connection', 'dns')
-    except configparser.NoSectionError:
+    except (configparser.NoSectionError, configparser.NoOptionError):
       pass
 
     try:
@@ -517,7 +517,7 @@ def connect(args):
         pia_timeout = args.timeout
       else:
         pia_pf = config.get('connection', 'timeout')
-    except configparser.NoSectionError:
+    except (configparser.NoSectionError, configparser.NoOptionError):
       pass
 
     try:
@@ -525,14 +525,14 @@ def connect(args):
         username = args.username.strip()
       else:
         username = config.get('auth', 'username')
-    except configparser.NoSectionError:
+    except (configparser.NoSectionError, configparser.NoOptionError):
       pass
     try:
       if(args.password):
         password = args.password.strip()
       else:
         password = config.get('auth', 'password')
-    except configparser.NoSectionError:
+    except (configparser.NoSectionError, configparser.NoOptionError):
       pass
     if(username == None):
       raise ValueError("Username must be specified on the command line, or be in the config file")
@@ -580,7 +580,7 @@ def refresh(args):
     else:
       pia_sd = config.get('programs', 'systemd')
       pia_sd_srv = config.get('programs', 'rtorrentservice')
-  except configparser.NoSectionError:
+  except (configparser.NoSectionError, configparser.NoOptionError):
     pass
   try:
     if(args.updatertorrent):
@@ -589,7 +589,7 @@ def refresh(args):
     else:
       pia_ur = config.get('programs', 'updatertorrent')
       pia_ur = config.get('programs', 'updatertorrentfile')
-  except configparser.NoSectionError:
+  except (configparser.NoSectionError, configparser.NoOptionError):
     pass
   try:
     if(args.updatetransmission):
@@ -604,7 +604,7 @@ def refresh(args):
       pia_ut_password = args.transmissionpassword
     else:
       pia_ut_password = config.get('transmission', 'password')
-  except configparser.NoSectionError:
+  except (configparser.NoSectionError, configparser.NoOptionError):
     pass
   file = open(args.file)
   port: PiaPort = jsonpickle.decode(file.read())
@@ -683,7 +683,7 @@ try:
       log_level = args.log.upper().strip()
     else:
       log_level = config.get('logging', 'level')
-  except configparser.NoSectionError:
+  except (configparser.NoSectionError, configparser.NoOptionError):
     pass
   
   logging.basicConfig(level=log_level)
