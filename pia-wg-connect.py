@@ -443,6 +443,9 @@ def connect(args):
     pia_pf_file: Optional[str] = None
     pia_ur: bool = False
     pia_ur_file: Optional[str] = None
+    pia_ut: bool = False
+    pia_ut_username: Optional[str] = None
+    pia_ut_password: Optional[str] = None
     pia_sd = False
     pia_sd_srv = None
     pia_dns: bool = False
