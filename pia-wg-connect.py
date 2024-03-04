@@ -274,11 +274,16 @@ def get_json(url: str) -> str:
 def get_best_server_region(piaregions: PiaRegion, pf: bool = False, timeout: int=10) -> Optional[Region]:
   logging.info("Getting best region... this may take a while")
   for region in piaregions.regions:
-    if(region.auto_region == True and (pf == False or region.port_forward == True)):
-      ipaddr: str = next(x for x in region.servers if x.group.sn == 'meta').details.ip
-      region.latency = get_server_latency(ip=ipaddr, timeout=timeout)
-    else:
+    try:
+      if(region.auto_region == True and (pf == False or region.port_forward == True)):
+        ipaddr: str = next(x for x in region.servers if x.group.sn == 'meta').details.ip
+        region.latency = get_server_latency(ip=ipaddr, timeout=timeout)
+      else:
+        region.latency = float('inf')
+    except Exception as e:
+      logging.debug(e)
       region.latency = float('inf')
+      pass
   return sorted(piaregions.regions,key=lambda r : r.latency)[0]
 
 def generate_token_response(region: Region, username: str, password: str) -> Optional[str]:
@@ -706,9 +711,10 @@ except PermissionError as e:
   logging.error(e)
   logging.error("Exiting!")
   raise SystemExit(22)
-except:
-  e = sys.exc_info()[0]
+except Exception as e:
+  f = sys.exc_info()[0]
   logging.error("Other error!")
   logging.error(e)
+  logging.error(f)
   logging.error("Exiting!")
   raise SystemExit(19)
